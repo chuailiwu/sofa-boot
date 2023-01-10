@@ -16,9 +16,19 @@
  */
 package com.alipay.sofa.healthcheck.test;
 
+import com.alipay.sofa.healthcheck.AfterReadinessCheckCallbackProcessor;
 import com.alipay.sofa.healthcheck.HealthCheckProperties;
+import com.alipay.sofa.healthcheck.HealthCheckerProcessor;
+import com.alipay.sofa.healthcheck.HealthIndicatorProcessor;
+import com.alipay.sofa.healthcheck.ReadinessCheckListener;
+import com.alipay.sofa.healthcheck.core.HealthCheckExecutor;
+import com.alipay.sofa.healthcheck.test.bean.DiskHealthIndicator;
+import com.alipay.sofa.healthcheck.test.bean.MemoryHealthChecker;
+import com.alipay.sofa.healthcheck.test.bean.MiddlewareHealthCheckCallback;
+import com.alipay.sofa.runtime.SofaRuntimeProperties;
 import com.alipay.sofa.runtime.configure.SofaRuntimeConfigurationProperties;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.BeansException;
@@ -35,16 +45,13 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.env.Environment;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import com.alipay.sofa.healthcheck.AfterReadinessCheckCallbackProcessor;
-import com.alipay.sofa.healthcheck.HealthCheckerProcessor;
-import com.alipay.sofa.healthcheck.HealthIndicatorProcessor;
-import com.alipay.sofa.healthcheck.ReadinessCheckListener;
-import com.alipay.sofa.healthcheck.test.bean.DiskHealthIndicator;
-import com.alipay.sofa.healthcheck.test.bean.MemoryHealthChecker;
-import com.alipay.sofa.healthcheck.test.bean.MiddlewareHealthCheckCallback;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author liangen
@@ -89,18 +96,46 @@ public class ReadinessCheckListenerTest {
         }
 
         @Bean
-        public ReadinessCheckListener readinessCheckListener() {
-            return new ReadinessCheckListener();
+        public ReadinessCheckListener readinessCheckListener(Environment environment,
+                                                             HealthCheckerProcessor healthCheckerProcessor,
+                                                             HealthIndicatorProcessor healthIndicatorProcessor,
+                                                             AfterReadinessCheckCallbackProcessor afterReadinessCheckCallbackProcessor,
+                                                             SofaRuntimeConfigurationProperties sofaRuntimeConfigurationProperties,
+                                                             HealthCheckProperties healthCheckProperties) {
+            return new ReadinessCheckListener(environment, healthCheckerProcessor,
+                healthIndicatorProcessor, afterReadinessCheckCallbackProcessor,
+                sofaRuntimeConfigurationProperties, healthCheckProperties);
         }
 
         @Bean
-        public HealthCheckerProcessor healthCheckerProcessor() {
-            return new HealthCheckerProcessor();
+        public HealthCheckerProcessor healthCheckerProcessor(HealthCheckProperties healthCheckProperties,
+                                                             HealthCheckExecutor healthCheckExecutor) {
+            return new HealthCheckerProcessor(healthCheckProperties, healthCheckExecutor);
         }
 
         @Bean
-        public HealthIndicatorProcessor healthIndicatorProcessor() {
-            return new HealthIndicatorProcessor();
+        public HealthIndicatorProcessor healthIndicatorProcessor(HealthCheckProperties properties,
+                                                                 HealthCheckExecutor healthCheckExecutor) {
+            return new HealthIndicatorProcessor(properties, healthCheckExecutor);
+        }
+
+        @Bean
+        public HealthCheckExecutor healthCheckExecutor(HealthCheckProperties properties) {
+            return new HealthCheckExecutor(properties);
+        }
+    }
+
+    @BeforeClass
+    public static void beforeClass() {
+        try {
+            Field f1 = SofaRuntimeProperties.class.getDeclaredField("manualReadinessCallbackMap");
+            f1.setAccessible(true);
+            Field modifiers = f1.getClass().getDeclaredField("modifiers");
+            modifiers.setAccessible(true);
+            modifiers.setInt(f1, f1.getModifiers() & ~Modifier.FINAL);
+            f1.set(SofaRuntimeProperties.class, new ConcurrentHashMap<>());
+        } catch (Exception e) {
+            System.out.println(e);
         }
     }
 

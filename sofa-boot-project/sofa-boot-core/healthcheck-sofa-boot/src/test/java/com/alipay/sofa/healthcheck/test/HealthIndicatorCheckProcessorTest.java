@@ -16,11 +16,14 @@
  */
 package com.alipay.sofa.healthcheck.test;
 
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
-
+import com.alipay.sofa.healthcheck.AfterReadinessCheckCallbackProcessor;
 import com.alipay.sofa.healthcheck.HealthCheckProperties;
+import com.alipay.sofa.healthcheck.HealthCheckerProcessor;
+import com.alipay.sofa.healthcheck.HealthIndicatorProcessor;
+import com.alipay.sofa.healthcheck.ReadinessCheckListener;
+import com.alipay.sofa.healthcheck.core.HealthCheckExecutor;
+import com.alipay.sofa.healthcheck.test.bean.DiskHealthIndicator;
+import com.alipay.sofa.healthcheck.test.bean.TimeoutHealthIndicator;
 import com.alipay.sofa.runtime.configure.SofaRuntimeConfigurationProperties;
 import org.junit.Assert;
 import org.junit.Test;
@@ -33,12 +36,11 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 
-import com.alipay.sofa.healthcheck.AfterReadinessCheckCallbackProcessor;
-import com.alipay.sofa.healthcheck.HealthCheckerProcessor;
-import com.alipay.sofa.healthcheck.HealthIndicatorProcessor;
-import com.alipay.sofa.healthcheck.ReadinessCheckListener;
-import com.alipay.sofa.healthcheck.test.bean.DiskHealthIndicator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * @author liangen
@@ -59,23 +61,42 @@ public class HealthIndicatorCheckProcessorTest {
         }
 
         @Bean
+        public TimeoutHealthIndicator timeoutHealthIndicator(@Value("${timeout-health-indicator.health}") boolean health) {
+            return new TimeoutHealthIndicator(health);
+        }
+
+        @Bean
         public AfterReadinessCheckCallbackProcessor afterReadinessCheckCallbackProcessor() {
             return new AfterReadinessCheckCallbackProcessor();
         }
 
         @Bean
-        public ReadinessCheckListener readinessCheckListener() {
-            return new ReadinessCheckListener();
+        public ReadinessCheckListener readinessCheckListener(Environment environment,
+                                                             HealthCheckerProcessor healthCheckerProcessor,
+                                                             HealthIndicatorProcessor healthIndicatorProcessor,
+                                                             AfterReadinessCheckCallbackProcessor afterReadinessCheckCallbackProcessor,
+                                                             SofaRuntimeConfigurationProperties sofaRuntimeConfigurationProperties,
+                                                             HealthCheckProperties healthCheckProperties) {
+            return new ReadinessCheckListener(environment, healthCheckerProcessor,
+                healthIndicatorProcessor, afterReadinessCheckCallbackProcessor,
+                sofaRuntimeConfigurationProperties, healthCheckProperties);
         }
 
         @Bean
-        public HealthCheckerProcessor healthCheckerProcessor() {
-            return new HealthCheckerProcessor();
+        public HealthCheckerProcessor healthCheckerProcessor(HealthCheckProperties healthCheckProperties,
+                                                             HealthCheckExecutor healthCheckExecutor) {
+            return new HealthCheckerProcessor(healthCheckProperties, healthCheckExecutor);
         }
 
         @Bean
-        public HealthIndicatorProcessor healthIndicatorProcessor() {
-            return new HealthIndicatorProcessor();
+        public HealthIndicatorProcessor healthIndicatorProcessor(HealthCheckProperties properties,
+                                                                 HealthCheckExecutor healthCheckExecutor) {
+            return new HealthIndicatorProcessor(properties, healthCheckExecutor);
+        }
+
+        @Bean
+        public HealthCheckExecutor healthCheckExecutor(HealthCheckProperties properties) {
+            return new HealthCheckExecutor(properties);
         }
     }
 
@@ -88,7 +109,7 @@ public class HealthIndicatorCheckProcessorTest {
         boolean result = healthIndicatorProcessor.readinessHealthCheck(hashMap);
         Health diskHealth = hashMap.get("disk");
         Assert.assertTrue(result);
-        Assert.assertEquals(1, hashMap.size());
+        Assert.assertEquals(2, hashMap.size());
         Assert.assertNotNull(diskHealth);
         Assert.assertEquals(diskHealth.getStatus(), Status.UP);
         Assert.assertEquals("hard disk is ok", diskHealth.getDetails().get("disk"));
@@ -103,15 +124,27 @@ public class HealthIndicatorCheckProcessorTest {
         boolean result = healthIndicatorProcessor.readinessHealthCheck(hashMap);
         Health diskHealth = hashMap.get("disk");
         Assert.assertFalse(result);
-        Assert.assertEquals(1, hashMap.size());
+        Assert.assertEquals(2, hashMap.size());
         Assert.assertNotNull(diskHealth);
-        Assert.assertEquals(diskHealth.getStatus(), Status.DOWN);
+        Assert.assertEquals(Status.DOWN, diskHealth.getStatus());
         Assert.assertEquals("hard disk is bad", diskHealth.getDetails().get("disk"));
+
+        Health timeoutHealth = hashMap.get("timeout");
+        Assert.assertNotNull(timeoutHealth);
+        Assert.assertEquals(Status.UNKNOWN, timeoutHealth.getStatus());
+        Assert.assertEquals("java.util.concurrent.TimeoutException: null", timeoutHealth
+            .getDetails().get("error"));
     }
 
     private void initApplicationContext(boolean health) {
         Map<String, Object> properties = new LinkedHashMap<>();
         properties.put("disk-health-indicator.health", health);
+        properties.put("timeout-health-indicator.health", true);
+        if (!health) {
+            properties.put("com.alipay.sofa.healthcheck.indicator.timeout.timeoutHealthIndicator",
+                "1");
+        }
+        properties.put("com.alipay.sofa.healthcheck.skip.indicator", "true");
         properties.put("spring.application.name", "HealthIndicatorCheckProcessorTest");
         SpringApplication springApplication = new SpringApplication(
             HealthIndicatorConfiguration.class);

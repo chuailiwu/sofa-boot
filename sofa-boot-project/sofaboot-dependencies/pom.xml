@@ -34,6 +34,8 @@
         <sofa.hessian.version>3.3.12</sofa.hessian.version>
 
         <!--3rd lib dependency-->
+        <!--FIXME 1.7.36 will cause compatibility problem, see #https://www.slf4j.org/manual.html-->
+        <slf4j.version>1.7.32</slf4j.version>
         <fastjson.version>1.2.69</fastjson.version>
         <javassist.version>3.19.0-GA</javassist.version>
         <protobuf-java.version>3.11.0</protobuf-java.version>
@@ -46,7 +48,7 @@
 
         <resteasy.version>3.6.3.Final</resteasy.version>
         <curator.version>4.0.1</curator.version>
-        <dubbo.version>2.6.7</dubbo.version>
+        <dubbo.version>2.6.9</dubbo.version>
         <zkclient.version>0.11</zkclient.version>
         <nacos.version>1.0.0</nacos.version>
         <swagger.version>2.0.0</swagger.version>
@@ -320,6 +322,42 @@
             <dependency>
                 <groupId>com.alipay.sofa</groupId>
                 <artifactId>sofa-tracer-zipkin-plugin</artifactId>
+                <version>${tracer.core.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alipay.sofa</groupId>
+                <artifactId>sofa-tracer-kafkamq-plugin</artifactId>
+                <version>${tracer.core.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alipay.sofa</groupId>
+                <artifactId>sofa-tracer-rabbitmq-plugin</artifactId>
+                <version>${tracer.core.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alipay.sofa</groupId>
+                <artifactId>sofa-tracer-rocketmq-plugin</artifactId>
+                <version>${tracer.core.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alipay.sofa</groupId>
+                <artifactId>sofa-tracer-springmessage-plugin</artifactId>
+                <version>${tracer.core.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alipay.sofa</groupId>
+                <artifactId>sofa-tracer-redis-plugin</artifactId>
+                <version>${tracer.core.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alipay.sofa</groupId>
+                <artifactId>sofa-tracer-mongodb-plugin</artifactId>
                 <version>${tracer.core.version}</version>
             </dependency>
 
